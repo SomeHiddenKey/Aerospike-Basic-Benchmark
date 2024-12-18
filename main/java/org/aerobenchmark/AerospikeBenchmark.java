@@ -17,6 +17,7 @@ import java.util.function.Predicate;
 
 import static org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource.traversal;
 import static org.apache.tinkerpop.gremlin.process.traversal.P.*;
+import static org.apache.tinkerpop.gremlin.process.traversal.TextP.startingWith;
 import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.*;
 
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -33,6 +34,7 @@ public class AerospikeBenchmark extends BenchmarkBase{
     String random_movie_id = "";
     Pair<Integer, Integer> random_time_interval = new Pair<Integer, Integer>(1980, 2001);
 
+    //Get the name of all movies a given actor is known for
     @Benchmark
     public void query1(){
         g.V(random_actor_id)
@@ -54,8 +56,8 @@ public class AerospikeBenchmark extends BenchmarkBase{
     //Get the director who directed the most movies
     @Benchmark
     public String query3(){
-        return g.V()
-            .filter(enforce_profession("director"))
+        return g.V("director")
+            .in("profession")
             .order().by(outE("directed").count())
             .tail().values("name").next().toString();
     }
@@ -63,8 +65,8 @@ public class AerospikeBenchmark extends BenchmarkBase{
     //Get the director who directed the most movies during a specific period of time
     @Benchmark
     public String query4(){
-        return g.V()
-            .filter(enforce_profession("director"))
+        return g.V("director")
+            .in("profession")
             .order().by(out("directed").has("startYear",gte(random_time_interval.getValue0())).has("endYear",lte(random_time_interval.getValue1())).count())
             .tail().values("name").next().toString();
     }
@@ -72,8 +74,8 @@ public class AerospikeBenchmark extends BenchmarkBase{
     //Get the actor with the most diversified genres of movie
     @Benchmark
     public String query5(){
-        return g.V()
-            .filter(enforce_profession("actor"))
+        return g.V("actor","actress")
+            .in("profession")
             .order().by(out("knownFor").out("genre").dedup().count())
             .tail().values("name").next().toString();
     }
@@ -84,7 +86,7 @@ public class AerospikeBenchmark extends BenchmarkBase{
         return g.V(random_writer_id)
             .out("wrote")
             .in("knownFor")
-            .filter(enforce_profession("actor"))
+            .filter(out("profession").or(hasId("actor"),hasId("actress")))
             .dedup()
             .values("name").toList();
     }
@@ -92,8 +94,8 @@ public class AerospikeBenchmark extends BenchmarkBase{
     //Get all the actors who never worked with a given writer
     @Benchmark
     public List<Object> query7(){
-        return g.V()
-            .filter(enforce_profession("actor"))
+        return g.V("actor","actress")
+            .in("profession")
             .not(out("knownFor").in("wrote").hasId(random_writer_id))
             .values("name").toList();
     }
@@ -101,7 +103,8 @@ public class AerospikeBenchmark extends BenchmarkBase{
     //Get all the writers that wrote at least 2 movies
     @Benchmark
     public List<Object> query8(){
-        return g.V()
+        return g.V("writer")
+            .in("profession")
             .where(out("wrote").count().is(gte(2)))
             .values("name").toList();
     }
@@ -123,6 +126,7 @@ public class AerospikeBenchmark extends BenchmarkBase{
     @Benchmark
     public String query10(){
         return g.V()
+            .hasLabel("person")
             .order().by(
                 union(
                     in("knownForTitle"),
@@ -138,6 +142,7 @@ public class AerospikeBenchmark extends BenchmarkBase{
     //Sort movies alphabetically
     public void query11(){
         g.V()
+            .hasLabel("title")
             .order().by("primaryTitle")
             .values("primaryTitle");
     }
